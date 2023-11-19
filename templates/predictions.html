@@ -1,0 +1,108 @@
+{% extends 'index.html' %} {% block body %} <br /><br />
+<style>
+  .img-fluid {
+    border: 1px solid black;
+  }
+</style>
+<div class="row">
+  <div class="col">
+    <img class="img-fluid border border-primary" src="/static/media/magic_color.jpg" alt="magic color image" />
+  </div>
+
+  <div class="col">
+    <img class="img-fluid border border-primary" src="/static/media/bounding_box.jpg" alt="bounding box image" />
+  </div>
+</div>
+
+<br /><br />
+
+<button id="downloadBtn" class="btn btn-primary">Download as Excel</button>
+<br /><br />
+<div class="row">
+
+
+  <table class="table table-hover table-dark">
+    <thead>
+      {% for key, value in results.items() %}
+      <th>{{ key }}
+      </th>
+      {% endfor %}
+    </thead>
+
+    <tbody>
+      <tr>
+        {% for key, value in results.items() %}
+        <td>{{ value|clean_value }}</td>
+        {% endfor %}
+      </tr>
+    </tbody>
+  </table>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+<script>
+  function generateExcel() {
+    // Extract data from the table and convert it into a 2D array
+    var tableRows = document.querySelectorAll("table tbody tr");
+    var data = [];
+    tableRows.forEach(function (row) {
+      var rowData = [];
+      row.querySelectorAll("td").forEach(function (cell) {
+        rowData.push(cell.textContent.trim()); // Remove whitespace and newline characters
+      });
+      data.push(rowData);
+    });
+
+    // Check if the existing Excel data exists in local storage
+    var existingData = localStorage.getItem("workbook_data");
+    var workbook;
+
+    if (existingData) {
+      // If the existing Excel data exists, parse it
+      workbook = XLSX.read(existingData, { type: 'binary' });
+    } else {
+      // If the existing Excel data doesn't exist, create a new workbook
+      workbook = XLSX.utils.book_new();
+    }
+
+    // Get the existing worksheet from the workbook
+    var existingWorksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    // Get the range of the existing worksheet
+    var range = XLSX.utils.decode_range(existingWorksheet['!ref']);
+
+    // Determine the start row for appending new data
+    var startRow = range.e.r + 1;
+
+    // Append the new data to the existing worksheet
+    data.forEach(function (rowData, rowIndex) {
+      rowData.forEach(function (cellData, cellIndex) {
+        var cellAddress = XLSX.utils.encode_cell({ r: startRow + rowIndex, c: cellIndex });
+        existingWorksheet[cellAddress] = { t: 's', v: cellData }; // 's' indicates string type
+      });
+    });
+
+    // Update the range of the worksheet
+    range.e.r = startRow + data.length - 1;
+    existingWorksheet['!ref'] = XLSX.utils.encode_range(range);
+
+    // Convert the updated workbook to binary data and save it in local storage
+    var updatedData = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
+    localStorage.setItem("workbook_data", updatedData);
+
+    // Generate Excel file and download it
+    var blob = new Blob([s2ab(updatedData)], { type: 'application/octet-stream' });
+    saveAs(blob, "table_data.xlsx");
+  }
+
+  function s2ab(s) {
+    var buf = new ArrayBuffer(s.length);
+    var view = new Uint8Array(buf);
+    for (var i = 0; i != s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+    return buf;
+  }
+
+  document.getElementById("downloadBtn").addEventListener("click", generateExcel);
+
+
+</script>
+{% endblock %}
